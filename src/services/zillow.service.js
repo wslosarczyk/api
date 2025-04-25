@@ -30,12 +30,33 @@ const searchProperties = async (location) => {
             params: { location }
         });
 
-        // Przetwarzamy dane, aby usunąć obrazki
-        const transformedData = transformProperties(response.data.results || []);
-        return {
-            ...response.data,
-            results: transformedData // Zwracamy przetworzone wyniki
-        };
+
+
+        // Clean response to remove image data
+        const cleanResponse = { ...response.data };
+
+        if (cleanResponse.results && Array.isArray(cleanResponse.results)) {
+            cleanResponse.results = cleanResponse.results.map(property => {
+                // Remove all image-related fields
+                const {
+                    imgSrc,
+                    carouselPhotos,
+                    photos,
+                    photoUrls,
+                    images,
+                    imageUrls,
+                    thumbnail,
+                    thumbnailUrl,
+                    detailUrl,
+                    hdpPhotos,
+                    ...cleanedProperty
+                } = property;
+
+                return cleanedProperty;
+            });
+        }
+
+        return cleanResponse;
     } catch (error) {
         console.error('Błąd podczas pobierania danych z Zillow API:', error);
         throw new Error('Nie można pobrać danych nieruchomości');

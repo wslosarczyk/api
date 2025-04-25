@@ -5,11 +5,9 @@ const path = require('path');
 
 // Lista lokalizacji do regularnego pobierania danych
 const locations = [
-    'warszawa',
-    'kraków',
-    'wrocław',
-    'poznań',
-    'gdańsk'
+    'new york',
+    'san francisco',
+    'los angeles'
 ];
 
 // Funkcja do logowania wyników ETL
@@ -60,12 +58,12 @@ function scheduleETLJobs() {
     // Aktualizacja popularnych lokalizacji co 6 godzin
     cron.schedule('0 */6 * * *', async () => {
         try {
-            console.log('Uruchamiam częstszą aktualizację dla Warszawy');
-            const result = await runETLPipeline('warszawa');
-            logETLResult('warszawa (co 6h)', result);
+            console.log('Uruchamiam częstszą aktualizację dla Nowego Yorku');
+            const result = await runETLPipeline('new york');
+            logETLResult('new york (co 6h)', result);
         } catch (error) {
-            console.error('Błąd podczas częstej aktualizacji Warszawy:', error);
-            logETLResult('warszawa (co 6h)', null, error);
+            console.error('Błąd podczas częstej aktualizacji Nowego Yorku:', error);
+            logETLResult('new york (co 6h)', null, error);
         }
     });
 

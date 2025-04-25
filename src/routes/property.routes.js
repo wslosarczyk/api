@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const propertyController = require('../controllers/property.controller');
 
-// GET /api/properties/search?location=warszawa
+// GET /api/properties/search?location=new-york
 router.get('/search', propertyController.searchProperties);
 
 // GET /api/properties/:id

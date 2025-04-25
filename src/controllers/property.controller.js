@@ -2,7 +2,7 @@ const zillowService = require('../services/zillow.service');
 
 /**
  * Wyszukaj nieruchomości
- * GET /api/properties/search?location=warszawa
+ * GET /api/properties/search?location=new-york
  */
 const searchProperties = async (req, res, next) => {
     try {

@@ -14,7 +14,6 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
-// Routes
 app.use('/api/properties', propertyRoutes);
 
 // Home route
@@ -28,5 +27,6 @@ app.use(errorHandler);
 // Start server
 app.listen(PORT, () => {
     console.log(`Serwer działa na porcie ${PORT}`);
-    connectDB(); // Odkomentuj jeśli używasz MongoDB
+    connectDB();
+    console.log('Połączono z bazą danych MongoDB');
 });
