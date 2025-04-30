@@ -2,6 +2,26 @@ const zillowService = require('../services/zillow.service');
 const Property = require('../models/property.model');
 const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose');
+
+// Funkcja do połączenia z bazą danych
+async function connectToDatabase() {
+    try {
+        if (mongoose.connection.readyState === 0) {
+            await mongoose.connect('mongodb://localhost:27017/yourdbname', {
+                useNewUrlParser: true,
+                useUnifiedTopology: true,
+                serverSelectionTimeoutMS: 15000, // Zwiększony timeout
+                socketTimeoutMS: 45000,
+            });
+            console.log('Połączono z MongoDB');
+        }
+        return mongoose.connection;
+    } catch (error) {
+        console.error('Błąd połączenia z MongoDB:', error);
+        throw error;
+    }
+}
 
 // Funkcja do ekstrakcji danych z API i zapisania ich do pliku
 async function extractDataToFile(location, outputFileName) {
@@ -22,41 +42,32 @@ async function extractDataToFile(location, outputFileName) {
     }
 }
 
-// Funkcja do transformacji danych
 function transformProperties(rawData) {
     console.log('Rozpoczynam transformację danych...');
 
-    if (!rawData.results || !Array.isArray(rawData.results)) {
+    // Extract properties from the correct location in the data structure
+    const properties = rawData.data?.props || [];
+
+    if (!properties.length) {
         console.warn('Brak wyników do transformacji');
         return [];
     }
 
-    // Transformacja danych - przykładowo normalizacja i wzbogacenie
-    return rawData.results.map(property => ({
-        zpid: property.zpid,
-        address: {
-            street: property.address?.streetAddress || '',
-            city: property.address?.city || '',
-            state: property.address?.state || '',
-            zipcode: property.address?.zipcode || ''
-        },
+    // Transform the data
+    return properties.map(property => ({
+        zpid: property.zpid || `prop-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        address: property.address || '',
         price: property.price || 0,
         bedrooms: property.bedrooms || 0,
         bathrooms: property.bathrooms || 0,
-        livingArea: property.livingArea || 0,
         propertyType: property.propertyType || 'unknown',
-        yearBuilt: property.yearBuilt || null,
-        hasGarage: property.hasGarage || false,
-        hasPool: property.hasPool || false,
-        // Dodane pola wzbogacające dane
-        pricePerSqft: property.livingArea ? Math.round(property.price / property.livingArea) : null,
-        isNewConstruction: property.yearBuilt && new Date().getFullYear() - property.yearBuilt <= 3,
-        dataQualityScore: calculateDataQualityScore(property),
+        listingStatus: property.listingStatus || '',
+        country: property.country || '',
+        // Add other fields as needed
         lastUpdated: new Date()
     }));
 }
 
-// Pomocnicza funkcja do wyliczania jakości danych
 function calculateDataQualityScore(property) {
     let score = 0;
     if (property.price) score += 20;
@@ -71,38 +82,27 @@ function calculateDataQualityScore(property) {
     return score;
 }
 
-// Funkcja do ładowania danych do bazy danych
+// Zmodyfikowana funkcja do ładowania danych do bazy danych
 async function loadDataToDb(transformedData) {
     console.log(`Ładowanie ${transformedData.length} rekordów do bazy danych...`);
 
     try {
-        // Opcjonalnie: wyczyść kolekcję przed załadowaniem nowych danych
-        // await Property.deleteMany({});
+        // Najpierw upewnij się, że połączenie z bazą danych jest aktywne
+        await connectToDatabase();
 
-        // Użyj bulkWrite dla wydajnego zapisu wielu rekordów
-        const operations = transformedData.map(property => ({
-            updateOne: {
-                filter: { zpid: property.zpid },
-                update: { $set: property },
-                upsert: true // Stwórz jeśli nie istnieje
-            }
-        }));
+        // Użyj insertMany zamiast bulkWrite dla prostszej operacji
+        const result = await Property.insertMany(transformedData, {
+            ordered: false  // Kontynuuj nawet jeśli niektóre dokumenty mają błędy
+        });
 
-        if (operations.length > 0) {
-            const result = await Property.bulkWrite(operations);
-            console.log(`Załadowano dane do bazy. Zmodyfikowano: ${result.modifiedCount}, Wstawiono: ${result.upsertedCount}`);
-            return result;
-        } else {
-            console.log('Brak danych do załadowania');
-            return null;
-        }
+        console.log(`Załadowano ${result.length} rekordów do bazy danych`);
+        return result;
     } catch (error) {
         console.error('Błąd podczas ładowania danych do bazy:', error);
         throw error;
     }
 }
 
-// Główna funkcja ETL
 async function runETLPipeline(location = 'warszawa') {
     try {
         console.log('Uruchamiam pipeline ETL...');
@@ -114,7 +114,7 @@ async function runETLPipeline(location = 'warszawa') {
         // 2. Transform - przekształć dane
         const transformedData = transformProperties(rawData);
 
-        // Zapisz przetworzone dane do pliku (opcjonalnie)
+        // Zapisz przetworzone dane do pliku
         const transformedPath = path.join(__dirname, '../../data/processed', rawFileName);
         fs.mkdirSync(path.dirname(transformedPath), { recursive: true });
         fs.writeFileSync(transformedPath, JSON.stringify(transformedData, null, 2));
@@ -133,6 +133,9 @@ async function runETLPipeline(location = 'warszawa') {
     } catch (error) {
         console.error('Błąd podczas wykonywania ETL:', error);
         throw error;
+    } finally {
+        // Opcjonalnie, zamknij połączenie jeśli nie jest potrzebne gdzie indziej
+        // await mongoose.connection.close();
     }
 }
 
