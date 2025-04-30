@@ -30,36 +30,45 @@ const searchProperties = async (location) => {
             params: { location }
         });
 
+        // Create a filtered response structure that matches the original
+        const cleanResponse = {
+            success: true,
+            data: {}
+        };
 
-
-        // Clean response to remove image data
-        const cleanResponse = { ...response.data };
-
-        if (cleanResponse.results && Array.isArray(cleanResponse.results)) {
-            cleanResponse.results = cleanResponse.results.map(property => {
-                // Remove all image-related fields
-                const {
-                    imgSrc,
-                    carouselPhotos,
-                    photos,
-                    photoUrls,
-                    images,
-                    imageUrls,
-                    thumbnail,
-                    thumbnailUrl,
-                    detailUrl,
-                    hdpPhotos,
-                    ...cleanedProperty
-                } = property;
-
-                return cleanedProperty;
+        // Check if the response has the expected structure
+        if (response.data && response.data.props && Array.isArray(response.data.props)) {
+            // Map only the fields we want from each property
+            cleanResponse.data.props = response.data.props.map(property => {
+                return {
+                    propertyType: property.propertyType,
+                    address: property.address,
+                    price: property.price,
+                    bedrooms: property.bedrooms,
+                    listingStatus: property.listingStatus,
+                    country: property.country
+                };
             });
+        } else if (response.data && response.data.results && Array.isArray(response.data.results)) {
+            // Alternative structure - some APIs return results instead of props
+            cleanResponse.data.props = response.data.results.map(property => {
+                return {
+                    propertyType: property.propertyType,
+                    address: property.address,
+                    price: property.price,
+                    bedrooms: property.bedrooms,
+                    listingStatus: property.listingStatus,
+                    country: property.country
+                };
+            });
+        } else {
+            cleanResponse.data.props = [];
         }
 
         return cleanResponse;
     } catch (error) {
-        console.error('Błąd podczas pobierania danych z Zillow API:', error);
-        throw new Error('Nie można pobrać danych nieruchomości');
+        console.error('Error fetching property data from Zillow API:', error);
+        throw new Error('Could not retrieve property data');
     }
 };
 
@@ -72,7 +81,26 @@ const getPropertyDetails = async (zpid) => {
         const response = await zillowAPI.get('/property', {
             params: { zpid }
         });
-        return response.data;
+
+        // Extract only the fields we want
+        const {
+            propertyType,
+            address,
+            price,
+            bedrooms,
+            listingStatus,
+            country
+        } = response.data;
+
+        // Return only the selected fields
+        return {
+            propertyType,
+            address,
+            price,
+            bedrooms,
+            listingStatus,
+            country
+        };
     } catch (error) {
         console.error('Błąd podczas pobierania szczegółów nieruchomości:', error);
         throw new Error('Nie można pobrać szczegółów nieruchomości');
