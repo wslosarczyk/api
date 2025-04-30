@@ -1,11 +1,38 @@
 const express = require('express');
-const router = express.Router();
-const propertyController = require('../controllers/property.controller');
+const router = express.Router(); // This line is missing
+const zillowService = require('../services/zillow.service');
 
-// GET /api/properties/search?location=new-york
-router.get('/search', propertyController.searchProperties);
+router.get('/search', async (req, res, next) => {
+    try {
+        const { location } = req.query;
+        if (!location) {
+            return res.status(400).json({
+                success: false,
+                error: 'Location parameter is required'
+            });
+        }
 
-// GET /api/properties/:id
-router.get('/:id', propertyController.getPropertyDetails);
+        const properties = await zillowService.searchProperties(location);
 
-module.exports = router;
+        // Return the already filtered data directly
+        res.json(properties);
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.get('/:zpid', async (req, res, next) => {
+    try {
+        const { zpid } = req.params;
+        const property = await zillowService.getPropertyDetails(zpid);
+
+        res.json({
+            success: true,
+            data: property
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+module.exports = router; // Make sure to export the router
